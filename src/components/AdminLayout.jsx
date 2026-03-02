@@ -136,6 +136,23 @@ export default function AdminLayout() {
         <main className="flex-1 p-4 lg:p-8 overflow-auto">
           <Outlet />
         </main>
+
+        {/* Footer */}
+        <footer className="px-4 lg:px-8 py-4 border-t border-border bg-card">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-text-muted">
+            <span>
+              &copy; {new Date().getFullYear()}{" "}
+              <span className="font-semibold text-text-secondary">
+                {tenant.appName}
+              </span>{" "}
+              &mdash; Tüm hakları saklıdır.
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-success-500 animate-pulse" />
+              Güvenli bağlantı &bull; Veriler Şifreli
+            </span>
+          </div>
+        </footer>
       </div>
     </div>
   );
