@@ -535,9 +535,10 @@ export default function Dashboard() {
           </Card>
 
           {/* Bottom section: Recent + Category Breakdown */}
-          <div className="grid lg:grid-cols-2 gap-6">
+          {/* overflow-hidden: iç kartlardaki taşan içerikler yatay scroll yaratmasın */}
+          <div className="grid lg:grid-cols-2 gap-6 overflow-hidden">
             {/* Recent Transactions */}
-            <Card>
+            <Card className="overflow-hidden">
               <h2 className="text-lg font-semibold text-text-primary mb-4">
                 Son İşlemler
               </h2>
@@ -550,7 +551,7 @@ export default function Dashboard() {
                   {recentTransactions.map((tx) => (
                     <li
                       key={tx.id}
-                      className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors min-w-0 gap-2"
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <div
@@ -577,7 +578,7 @@ export default function Dashboard() {
                         </div>
                       </div>
                       <span
-                        className={`text-sm font-semibold whitespace-nowrap ml-3 ${
+                        className={`text-sm font-semibold shrink-0 ${
                           tx.type === "income"
                             ? "text-success-700"
                             : "text-danger-700"
@@ -593,7 +594,7 @@ export default function Dashboard() {
             </Card>
 
             {/* Category Breakdown */}
-            <Card>
+            <Card className="overflow-hidden">
               <h2 className="text-lg font-semibold text-text-primary mb-4">
                 Kategorilere Göre Dağılım
               </h2>
@@ -612,7 +613,7 @@ export default function Dashboard() {
                     return (
                       <li key={idx}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-text-primary flex items-center gap-2">
+                          <span className="text-sm font-medium text-text-primary flex items-center gap-2 min-w-0">
                             <span
                               className={`w-2 h-2 rounded-full shrink-0 ${
                                 item.type === "income"
@@ -620,10 +621,10 @@ export default function Dashboard() {
                                   : "bg-danger-500"
                               }`}
                             />
-                            {item.name}
+                            <span className="truncate">{item.name}</span>
                           </span>
                           <span
-                            className={`text-sm font-semibold ${
+                            className={`text-sm font-semibold shrink-0 ml-2 ${
                               item.type === "income"
                                 ? "text-success-700"
                                 : "text-danger-700"
