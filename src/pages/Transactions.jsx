@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../hooks/useAuth";
 import { exportTransactionsToExcel } from "../utils/exportExcel";
 import { exportTransactionsToGoogleSheets } from "../utils/exportGoogleSheets";
 import Card from "../components/ui/Card";
@@ -81,6 +82,8 @@ const EMPTY_FORM = {
 };
 
 export default function Transactions() {
+  // Görev 1: Kapıdaki kişiyi öğren — tüm sorgular bu user'a göre filtrelenecek
+  const { user } = useAuth();
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -130,9 +133,11 @@ export default function Transactions() {
   }, [transactions]);
 
   const fetchCategories = async () => {
+    // Görev 2: Sadece bu kullanıcıya ait kategorileri çek
     const { data } = await supabase
       .from("categories")
       .select("*")
+      .eq("user_id", user.id)
       .order("name");
     setCategories(data || []);
   };
@@ -145,9 +150,11 @@ export default function Transactions() {
         ? `${selectedYear + 1}-01-01`
         : `${selectedYear}-${String(selectedMonth + 2).padStart(2, "0")}-01`;
 
+    // Görev 2: Sadece bu kullanıcıya ait işlemleri çek
     const { data, error } = await supabase
       .from("transactions")
       .select("*, categories(name)")
+      .eq("user_id", user.id)
       .gte("date", startDate)
       .lt("date", endDate)
       .order("date", { ascending: false })
@@ -254,7 +261,9 @@ export default function Transactions() {
     setSaving(true);
     setError("");
 
+    // Görev 3: user_id NOT NULL olduğu için insert'e ekliyoruz
     const { error } = await supabase.from("transactions").insert({
+      user_id: user.id,
       date: formData.date,
       amount: formData.amount,
       type: formData.type,

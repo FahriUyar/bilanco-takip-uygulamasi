@@ -66,12 +66,18 @@ export default function RecurringTransactions() {
 
   const fetchData = async () => {
     setLoading(true);
+    // Görev 2: Her iki sorguya da kullanıcı filtresi ekledik
     const [{ data: recData }, { data: catData }] = await Promise.all([
       supabase
         .from("recurring_transactions")
         .select("*, categories(name)")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false }),
-      supabase.from("categories").select("*").order("name"),
+      supabase
+        .from("categories")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("name"),
     ]);
     setRecurring(recData || []);
     setCategories(catData || []);

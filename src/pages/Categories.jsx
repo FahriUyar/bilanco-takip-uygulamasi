@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../hooks/useAuth";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
@@ -20,6 +21,8 @@ const TYPE_OPTIONS = [
 ];
 
 export default function Categories() {
+  // Görev 1: Kapıdaki kişiyi öğren
+  const { user } = useAuth();
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -34,9 +37,11 @@ export default function Categories() {
 
   const fetchCategories = async () => {
     setLoading(true);
+    // Görev 2: Sadece bu kullanıcıya ait kategorileri çek
     const { data, error } = await supabase
       .from("categories")
       .select("*")
+      .eq("user_id", user.id)
       .order("type", { ascending: true })
       .order("name", { ascending: true });
 
@@ -56,9 +61,10 @@ export default function Categories() {
     setSaving(true);
     setError("");
 
+    // Görev 3: user_id NOT NULL olduğu için insert'e ekliyoruz
     const { error } = await supabase
       .from("categories")
-      .insert({ name: name.trim(), type });
+      .insert({ user_id: user.id, name: name.trim(), type });
 
     if (error) {
       setError("Kategori eklenirken hata oluştu.");

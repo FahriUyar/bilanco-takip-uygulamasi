@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "../lib/supabase";
+import { useAuth } from "../hooks/useAuth";
 import Card from "../components/ui/Card";
 import Select from "../components/ui/Select";
 import {
@@ -67,6 +68,8 @@ const formatPercent = (value) => {
 };
 
 export default function Reports() {
+  // Görev 1: Kapıdaki kişiyi öğren
+  const { user } = useAuth();
   const now = new Date();
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
   const [yearlyData, setYearlyData] = useState([]);
@@ -91,9 +94,11 @@ export default function Reports() {
   }, [selectedYear]);
 
   const fetchCategories = async () => {
+    // Görev 2: Sadece bu kullanıcıya ait kategorileri çek
     const { data } = await supabase
       .from("categories")
       .select("*")
+      .eq("user_id", user.id)
       .order("name");
     setCategories(data || []);
   };
@@ -103,9 +108,11 @@ export default function Reports() {
     const startDate = `${selectedYear}-01-01`;
     const endDate = `${selectedYear + 1}-01-01`;
 
+    // Görev 2: Sadece bu kullanıcıya ait yıllık verileri çek
     const { data, error } = await supabase
       .from("transactions")
       .select("*, categories(name)")
+      .eq("user_id", user.id)
       .gte("date", startDate)
       .lt("date", endDate)
       .order("date", { ascending: true });
