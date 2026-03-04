@@ -1,15 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "./useAuth";
 
+/**
+ * useRecurringCheck
+ *
+ * Neden useRef guard?
+ * React StrictMode ve sayfa geçişlerinde useEffect birden fazla
+ * kez tetiklenebilir. Ref ile "zaten çalışıyor" kontrolü yaparak
+ * aynı anda birden fazla insert işleminin olmasını engelliyoruz.
+ */
 export function useRecurringCheck() {
   const { user } = useAuth();
   const [generatedCount, setGeneratedCount] = useState(0);
   const [checked, setChecked] = useState(false);
+  const running = useRef(false);
 
   useEffect(() => {
     if (!user) return;
-    checkAndGenerate();
+    // Guard: zaten çalışıyorsa tekrar başlatma
+    if (running.current) return;
+    running.current = true;
+
+    checkAndGenerate().finally(() => {
+      running.current = false;
+    });
   }, [user]);
 
   const checkAndGenerate = async () => {
@@ -52,6 +67,14 @@ export function useRecurringCheck() {
           // Generate the transaction — user_id zorunlu
           const genDate = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(dayToGenerate).padStart(2, "0")}`;
 
+          // Önce last_generated'ı güncelle ki tekrar çalışırsa skip etsin
+          const { error: updateError } = await supabase
+            .from("recurring_transactions")
+            .update({ last_generated: genDate })
+            .eq("id", rec.id);
+
+          if (updateError) continue;
+
           const { error: insertError } = await supabase
             .from("transactions")
             .insert({
@@ -66,11 +89,6 @@ export function useRecurringCheck() {
             });
 
           if (!insertError) {
-            // Update last_generated
-            await supabase
-              .from("recurring_transactions")
-              .update({ last_generated: genDate })
-              .eq("id", rec.id);
             count++;
           }
         } else if (rec.frequency === "weekly") {
@@ -84,6 +102,14 @@ export function useRecurringCheck() {
           if (lastGen && lastGen > oneWeekAgo) continue;
 
           const genDate = now.toISOString().split("T")[0];
+
+          // Önce last_generated'ı güncelle
+          const { error: updateError } = await supabase
+            .from("recurring_transactions")
+            .update({ last_generated: genDate })
+            .eq("id", rec.id);
+
+          if (updateError) continue;
 
           const { error: insertError } = await supabase
             .from("transactions")
@@ -99,10 +125,6 @@ export function useRecurringCheck() {
             });
 
           if (!insertError) {
-            await supabase
-              .from("recurring_transactions")
-              .update({ last_generated: genDate })
-              .eq("id", rec.id);
             count++;
           }
         }
