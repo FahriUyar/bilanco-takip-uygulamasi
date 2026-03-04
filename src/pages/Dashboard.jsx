@@ -1,7 +1,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
+import { useProfile } from "../hooks/useProfile";
 import { useRecurringCheck } from "../hooks/useRecurringCheck";
+import {
+  getSalaryCycle,
+  shiftCycle,
+  cycleToDatabaseRange,
+} from "../utils/salaryCycle";
 import Card from "../components/ui/Card";
 import CurrencyInput from "../components/ui/CurrencyInput";
 import Button from "../components/ui/Button";
@@ -23,20 +29,7 @@ import {
   Pencil,
 } from "lucide-react";
 
-const MONTH_NAMES = [
-  "Ocak",
-  "Şubat",
-  "Mart",
-  "Nisan",
-  "Mayıs",
-  "Haziran",
-  "Temmuz",
-  "Ağustos",
-  "Eylül",
-  "Ekim",
-  "Kasım",
-  "Aralık",
-];
+// MONTH_NAMES artık salaryCycle.js içinde — burada kullanılmıyor.
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("tr-TR", {
@@ -47,10 +40,13 @@ const formatCurrency = (amount) =>
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { salaryDay } = useProfile();
   const { generatedCount, checked: recurringChecked } = useRecurringCheck();
-  const now = new Date();
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
+
+  // Maaş döngüsü: takvim ayı yerine salary_day'e göre dönem hesabı
+  const [cycle, setCycle] = useState(() =>
+    getSalaryCycle(new Date(), salaryDay),
+  );
   const [transactions, setTransactions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -63,26 +59,26 @@ export default function Dashboard() {
   const [showRecurringBanner, setShowRecurringBanner] = useState(true);
   const [editingQuickActions, setEditingQuickActions] = useState(false);
 
+  // salaryDay değiştiğinde (ayarlardan güncelleme) cycle'ı yeniden hesapla
+  useEffect(() => {
+    setCycle(getSalaryCycle(new Date(), salaryDay));
+  }, [salaryDay]);
+
   useEffect(() => {
     fetchTransactions();
     fetchCategories();
-  }, [selectedMonth, selectedYear]);
+  }, [cycle]);
 
   const fetchTransactions = async () => {
     setLoading(true);
-    const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, "0")}-01`;
-    const endDate =
-      selectedMonth === 11
-        ? `${selectedYear + 1}-01-01`
-        : `${selectedYear}-${String(selectedMonth + 2).padStart(2, "0")}-01`;
+    const { startISO, endISO } = cycleToDatabaseRange(cycle);
 
-    // Görev 2: Sadece bu kullanıcıya ait işlemleri çek
     const { data, error } = await supabase
       .from("transactions")
       .select("*, categories(name)")
       .eq("user_id", user.id)
-      .gte("date", startDate)
-      .lt("date", endDate)
+      .gte("date", startISO)
+      .lt("date", endISO)
       .order("date", { ascending: false })
       .order("created_at", { ascending: false });
 
@@ -168,23 +164,8 @@ export default function Dashboard() {
     setQuickSaving(false);
   };
 
-  const prevMonth = () => {
-    if (selectedMonth === 0) {
-      setSelectedMonth(11);
-      setSelectedYear((y) => y - 1);
-    } else {
-      setSelectedMonth((m) => m - 1);
-    }
-  };
-
-  const nextMonth = () => {
-    if (selectedMonth === 11) {
-      setSelectedMonth(0);
-      setSelectedYear((y) => y + 1);
-    } else {
-      setSelectedMonth((m) => m + 1);
-    }
-  };
+  const prevCycle = () => setCycle(shiftCycle(cycle.start, salaryDay, -1));
+  const nextCycle = () => setCycle(shiftCycle(cycle.start, salaryDay, 1));
 
   const totals = useMemo(() => {
     const income = transactions
@@ -224,26 +205,26 @@ export default function Dashboard() {
             Finansal Özet
           </h1>
           <p className="text-text-secondary mt-1">
-            Aylık gelir, gider ve net durumunuz.
+            Dönemsel gelir, gider ve net durumunuz.
           </p>
         </div>
 
-        {/* Month Selector */}
+        {/* Cycle Selector — maaş döngüsüne göre dönem */}
         <Card padding="p-3" className="flex items-center gap-2">
           <button
-            onClick={prevMonth}
+            onClick={prevCycle}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-secondary cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="flex items-center gap-2 px-3 min-w-[180px] justify-center">
+          <div className="flex items-center gap-2 px-3 min-w-[220px] justify-center">
             <Calendar className="w-4 h-4 text-primary-600" />
-            <span className="font-semibold text-text-primary">
-              {MONTH_NAMES[selectedMonth]} {selectedYear}
+            <span className="font-semibold text-text-primary text-sm">
+              {cycle.label}
             </span>
           </div>
           <button
-            onClick={nextMonth}
+            onClick={nextCycle}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-secondary cursor-pointer"
           >
             <ChevronRight className="w-5 h-5" />

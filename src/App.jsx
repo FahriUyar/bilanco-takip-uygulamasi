@@ -10,6 +10,7 @@ import Transactions from "./pages/Transactions";
 import Categories from "./pages/Categories";
 import Reports from "./pages/Reports";
 import RecurringTransactions from "./pages/RecurringTransactions";
+import Settings from "./pages/Settings";
 
 /**
  * Neden ProfileProvider PrivateRoute'un dışında?
@@ -32,6 +33,7 @@ export default function App() {
                 <Route path="/categories" element={<Categories />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/recurring" element={<RecurringTransactions />} />
+                <Route path="/settings" element={<Settings />} />
               </Route>
             </Route>
           </Routes>

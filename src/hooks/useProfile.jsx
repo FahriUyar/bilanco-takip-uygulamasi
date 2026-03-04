@@ -2,12 +2,12 @@
  * useProfile Hook + ProfileProvider
  *
  * Neden bu Context?
- * Kullanıcının `profiles` tablosundaki app_name bilgisini
+ * Kullanıcının `profiles` tablosundaki app_name ve salary_day bilgisini
  * her sayfada ayrı ayrı DB'den çekmek yerine, giriş anında
- * bir kez okuyup Context'e koyuyoruz. Böylece Header ve
+ * bir kez okuyup Context'e koyuyoruz. Böylece Header, Dashboard ve
  * diğer bileşenler doğrudan bellek içi state'i kullanır.
  *
- * needsOnboarding = true → kullanıcı henüz isim vermemiş,
+ * needsOnboarding = true → kullanıcı henüz profil bilgilerini girmemiş,
  * OnboardingForm gösterilir.
  */
 
@@ -26,6 +26,7 @@ const ProfileContext = createContext({});
 export function ProfileProvider({ children }) {
   const { user } = useAuth();
   const [appName, setAppName] = useState(null);
+  const [salaryDay, setSalaryDay] = useState(1);
   const [profileLoading, setProfileLoading] = useState(true);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
@@ -33,6 +34,7 @@ export function ProfileProvider({ children }) {
   useEffect(() => {
     if (!user) {
       setAppName(null);
+      setSalaryDay(1);
       setProfileLoading(false);
       setNeedsOnboarding(false);
       return;
@@ -45,7 +47,7 @@ export function ProfileProvider({ children }) {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("app_name")
+          .select("app_name, salary_day")
           .eq("id", user.id)
           .maybeSingle();
 
@@ -53,13 +55,12 @@ export function ProfileProvider({ children }) {
 
         if (error) {
           console.error("Profil yükleme hatası:", error);
-          // Hata olsa bile onboarding göster — kullanıcı yine isim girebilir
           setNeedsOnboarding(true);
         } else if (!data || !data.app_name) {
-          // Profil yok veya app_name boş → onboarding gerekli
           setNeedsOnboarding(true);
         } else {
           setAppName(data.app_name);
+          setSalaryDay(data.salary_day ?? 1);
           setNeedsOnboarding(false);
         }
       } catch (err) {
@@ -78,25 +79,25 @@ export function ProfileProvider({ children }) {
   }, [user]);
 
   /**
-   * Kullanıcının uygulama ismini kaydeder (upsert).
-   * Neden upsert? İlk kayıtta INSERT, sonraki güncellemelerde UPDATE yapar.
-   * profiles tablosunda id zaten PK olduğu için conflict detection otomatik.
+   * Profil bilgilerini kaydeder (upsert).
+   * Hem onboarding hem ayarlar sayfasından çağrılır.
    */
-  const saveAppName = useCallback(
-    async (name) => {
+  const saveProfile = useCallback(
+    async ({ appName: name, salaryDay: day }) => {
       if (!user) return;
 
-      const { error } = await supabase.from("profiles").upsert(
-        {
-          id: user.id,
-          app_name: name.trim(),
-        },
-        { onConflict: "id" },
-      );
+      const payload = { id: user.id };
+      if (name !== undefined) payload.app_name = name.trim();
+      if (day !== undefined) payload.salary_day = Number(day);
+
+      const { error } = await supabase
+        .from("profiles")
+        .upsert(payload, { onConflict: "id" });
 
       if (error) throw error;
 
-      setAppName(name.trim());
+      if (name !== undefined) setAppName(name.trim());
+      if (day !== undefined) setSalaryDay(Number(day));
       setNeedsOnboarding(false);
     },
     [user],
@@ -104,7 +105,13 @@ export function ProfileProvider({ children }) {
 
   return (
     <ProfileContext.Provider
-      value={{ appName, profileLoading, needsOnboarding, saveAppName }}
+      value={{
+        appName,
+        salaryDay,
+        profileLoading,
+        needsOnboarding,
+        saveProfile,
+      }}
     >
       {children}
     </ProfileContext.Provider>

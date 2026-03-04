@@ -1,35 +1,50 @@
 import { useState } from "react";
 import { useProfile } from "../hooks/useProfile";
-import { BarChart3, Loader2, Sparkles } from "lucide-react";
+import { BarChart3, Loader2, Sparkles, CalendarDays } from "lucide-react";
 
 /**
  * OnboardingForm
  *
- * Neden bu bileşen?
- * Yeni kayıt olan veya profili olmayan kullanıcılar ilk kez
- * giriş yaptığında ana ekranı değil bu formu görür.
- * Kullanıcı uygulamasına bir isim verir ve bu isim Header'da gösterilir.
- * Form doldurulana kadar uygulamanın geri kalanı erişilemez.
+ * Neden iki soru?
+ * 1) app_name — Header'da gösterilecek kişisel isim
+ * 2) salary_day — Maaş döngüsü için başlangıç günü
+ * Her ikisi de profiles tablosuna tek upsert ile kaydedilir.
  */
 
 export default function OnboardingForm() {
-  const { saveAppName } = useProfile();
+  const { saveProfile } = useProfile();
   const [name, setName] = useState("");
+  const [salaryDay, setSalaryDay] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handleSalaryDayChange = (e) => {
+    const val = e.target.value;
+    // Boş bırakabilsin, ama sadece sayı kabul et
+    if (val === "") {
+      setSalaryDay("");
+      return;
+    }
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 1 && num <= 31) {
+      setSalaryDay(num);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    const day = Number(salaryDay) || 1;
+
     setError("");
     setLoading(true);
 
     try {
-      await saveAppName(name);
+      await saveProfile({ appName: name, salaryDay: day });
     } catch (err) {
       console.error("Profil kayıt hatası:", err);
-      setError("İsim kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
+      setError("Kaydedilirken bir hata oluştu. Lütfen tekrar deneyin.");
     } finally {
       setLoading(false);
     }
@@ -67,7 +82,9 @@ export default function OnboardingForm() {
               <h2 className="text-lg font-semibold text-text-primary">
                 Kurulum
               </h2>
-              <p className="text-sm text-text-muted">Sadece bir adım kaldı</p>
+              <p className="text-sm text-text-muted">
+                İki kısa adım — hepsi bu kadar
+              </p>
             </div>
           </div>
 
@@ -78,6 +95,7 @@ export default function OnboardingForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* 1) Uygulama İsmi */}
             <div className="space-y-2">
               <label
                 htmlFor="appName"
@@ -96,8 +114,33 @@ export default function OnboardingForm() {
                 className="w-full px-4 py-3 rounded-xl border border-border bg-white text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-lg"
               />
               <p className="text-xs text-text-muted">
-                Bu isim uygulamanızın header kısmında görünecek. Dilediğiniz
-                zaman değiştirebilirsiniz.
+                Bu isim uygulamanızın header kısmında görünecek.
+              </p>
+            </div>
+
+            {/* 2) Maaş Günü */}
+            <div className="space-y-2">
+              <label
+                htmlFor="salaryDay"
+                className="block text-sm font-medium text-text-primary flex items-center gap-2"
+              >
+                <CalendarDays className="w-4 h-4 text-primary-500" />
+                Bütçe Başlangıç / Maaş Gününüz
+              </label>
+              <input
+                id="salaryDay"
+                type="number"
+                min={1}
+                max={31}
+                value={salaryDay}
+                onChange={handleSalaryDayChange}
+                placeholder="Örn: 15"
+                required
+                className="w-full px-4 py-3 rounded-xl border border-border bg-white text-text-primary placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition-all duration-200 text-lg"
+              />
+              <p className="text-xs text-text-muted">
+                Ayın hangi günü maaş/gelir alıyorsunuz? Dönem hesabı bu güne
+                göre yapılacak. (1-31 arası)
               </p>
             </div>
 

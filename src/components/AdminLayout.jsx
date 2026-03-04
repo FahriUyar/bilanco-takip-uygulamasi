@@ -9,6 +9,7 @@ import {
   Tags,
   BarChart3,
   RefreshCw,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -20,6 +21,7 @@ const NAV_ITEMS = [
   { to: "/categories", label: "Kategoriler", icon: Tags },
   { to: "/reports", label: "Raporlar", icon: BarChart3 },
   { to: "/recurring", label: "Otomatik İşlemler", icon: RefreshCw },
+  { to: "/settings", label: "Ayarlar", icon: Settings },
 ];
 
 export default function AdminLayout() {
