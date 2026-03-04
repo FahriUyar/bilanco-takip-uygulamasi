@@ -77,9 +77,7 @@ export default function Login() {
 
     try {
       await signUp(email, password);
-      setSuccess(
-        "Kayıt başarılı! Lütfen e-posta adresinizi doğrulayın, ardından giriş yapın.",
-      );
+      setSuccess("Kayıt başarılı! Giriş sayfasına yönlendiriliyorsunuz.");
       // Kayıt sonrası otomatik giriş tabına geçiş (3 sn sonra)
       setTimeout(() => {
         setActiveTab("login");
