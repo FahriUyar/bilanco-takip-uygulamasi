@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
-import { BarChart3, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 /**
  * Neden tek sayfada iki tab?
@@ -109,13 +109,13 @@ export default function Login() {
       </div>
 
       <div className="relative w-full max-w-md animate-fade-in">
-        {/* Logo — nötr marka */}
+        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-2xl shadow-lg shadow-primary-600/30 mb-4">
-            <BarChart3 className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Bilanço Takip</h1>
-          <p className="text-primary-200/60 mt-1">Finansal Yönetim Sistemi</p>
+          <img
+            src="/logo.png"
+            alt="Bilanço Takip"
+            className="h-24 mx-auto drop-shadow-lg"
+          />
         </div>
 
         {/* Card */}
