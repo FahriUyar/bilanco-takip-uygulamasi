@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { supabase } from "../lib/supabase";
-import { useAuth } from "../hooks/useAuth";
 import { exportTransactionsToExcel } from "../utils/exportExcel";
+import { useProfile } from "../hooks/useProfile";
 import { exportTransactionsToGoogleSheets } from "../utils/exportGoogleSheets";
 import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
@@ -107,6 +107,7 @@ function addMonths(dateStr, n) {
 export default function Transactions() {
   // Görev 1: Kapıdaki kişiyi öğren — tüm sorgular bu user'a göre filtrelenecek
   const { user } = useAuth();
+  const { appName } = useProfile();
   const now = new Date();
   const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
@@ -549,6 +550,7 @@ export default function Transactions() {
                 transactions,
                 MONTH_NAMES[selectedMonth],
                 selectedYear,
+                appName || "Rapor",
               )
             }
             disabled={loading || transactions.length === 0}

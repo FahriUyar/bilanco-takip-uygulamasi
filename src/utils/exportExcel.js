@@ -5,7 +5,12 @@ import * as XLSX from "xlsx";
  * Sütun genişlikleri otomatik ayarlanır, başlıklar kalın yazılır,
  * alt satırda toplam özeti gösterilir.
  */
-export function exportTransactionsToExcel(transactions, monthName, year) {
+export function exportTransactionsToExcel(
+  transactions,
+  monthName,
+  year,
+  appName = "Rapor",
+) {
   // Başlık satırı
   const headers = ["Tarih", "Tür", "Kategori", "Açıklama", "Tutar (₺)"];
 
@@ -84,12 +89,34 @@ export function exportTransactionsToExcel(transactions, monthName, year) {
     }
   }
 
+  // Dosya Adı Formatlama (İşletim Sistemi Uyumluluğu)
+  const formatFileName = (str) => {
+    return String(str || "")
+      .replace(/ğ/g, "g")
+      .replace(/Ğ/g, "G")
+      .replace(/ü/g, "u")
+      .replace(/Ü/g, "U")
+      .replace(/ş/g, "s")
+      .replace(/Ş/g, "S")
+      .replace(/ı/g, "i")
+      .replace(/İ/g, "I")
+      .replace(/ö/g, "o")
+      .replace(/Ö/g, "O")
+      .replace(/ç/g, "c")
+      .replace(/Ç/g, "C")
+      .replace(/[^a-zA-Z0-9\s-]/g, "")
+      .trim()
+      .replace(/\s+/g, "_");
+  };
+
+  const safeAppName = formatFileName(appName) || "Bilanço_Raporu";
+  const safeMonthName = formatFileName(monthName);
+
   // Workbook oluştur
   const wb = XLSX.utils.book_new();
-  const safeMonthName = monthName.replace(/\s+/g, "_");
   XLSX.utils.book_append_sheet(wb, ws, `${safeMonthName} ${year}`);
 
   // Dosyayı indir
-  const fileName = `Aytac_Eczanesi_${safeMonthName}_${year}.xlsx`;
+  const fileName = `${safeAppName}_${safeMonthName}_${year}.xlsx`;
   XLSX.writeFile(wb, fileName);
 }
