@@ -1191,7 +1191,7 @@ export default function Transactions() {
                           </Button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                        <div className="flex items-center justify-end gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all">
                           <button
                             onClick={() => startEdit(tx)}
                             className="p-1.5 rounded-lg text-text-muted hover:text-primary-600 hover:bg-primary-50 transition-all cursor-pointer"
