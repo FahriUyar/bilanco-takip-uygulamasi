@@ -208,7 +208,10 @@ export default function Dashboard() {
     // 📊 Toplam Harcama (bütçe takibi) = Nakit + KK giderleri (is_transfer hariç)
     const totalSpending = cashExpenses + creditCardExpenses;
 
-    return { income, cashBalance, creditDebt, totalSpending };
+    // 🌟 Net Durum
+    const netStatus = cashBalance - creditDebt;
+
+    return { income, cashBalance, creditDebt, totalSpending, netStatus };
   }, [transactions]);
 
   const recentTransactions = useMemo(
@@ -282,8 +285,33 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* Summary Cards — İki Kova Muhasebesi */}
-          <div className="grid sm:grid-cols-3 gap-4 lg:gap-6">
+          {/* Summary Cards — 4'lü İki Kova + Net Durum */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+            {/* 🌟 Net Durum (Ana Odak) */}
+            <Card className="relative overflow-hidden group hover:shadow-lg transition-all border-none bg-slate-900">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] group-hover:bg-blue-500/20 transition-colors" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <Wallet className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-sm font-medium text-slate-300">
+                    Net Durum
+                  </span>
+                </div>
+                <p
+                  className={`text-2xl lg:text-3xl font-bold ${
+                    totals.netStatus >= 0 ? "text-white" : "text-danger-400"
+                  }`}
+                >
+                  {formatCurrency(totals.netStatus)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Bankadaki nakit − Kredi kartı borcu
+                </p>
+              </div>
+            </Card>
+
             {/* 🏦 Bankadaki Para */}
             <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
               <div className="absolute top-0 right-0 w-24 h-24 bg-success-500/5 rounded-bl-[60px] group-hover:bg-success-500/10 transition-colors" />
@@ -306,7 +334,7 @@ export default function Dashboard() {
                   {formatCurrency(totals.cashBalance)}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Gelir − Nakit giderler − KK ödemeleri
+                  Kasadaki güncel nakit paran
                 </p>
               </div>
             </Card>
@@ -333,7 +361,7 @@ export default function Dashboard() {
                   {formatCurrency(Math.max(0, totals.creditDebt))}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  KK harcamaları − KK ödemeleri
+                  Ödenmesi gereken güncel borç
                 </p>
               </div>
             </Card>
@@ -354,7 +382,7 @@ export default function Dashboard() {
                   {formatCurrency(totals.totalSpending)}
                 </p>
                 <p className="text-xs text-text-muted mt-1">
-                  Nakit + KK giderleri (borç ödemesi hariç)
+                  Nakit + Kredi Kartı harcamaları
                 </p>
               </div>
             </Card>
