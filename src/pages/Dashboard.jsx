@@ -76,7 +76,7 @@ export default function Dashboard() {
 
     const { data, error } = await supabase
       .from("transactions")
-      .select("*, categories(name)")
+      .select("*, categories(name, parent_id)")
       .eq("user_id", user.id)
       .gte("date", startISO)
       .lt("date", endISO)
@@ -188,15 +188,23 @@ export default function Dashboard() {
     transactions
       .filter((tx) => !tx.is_transfer)
       .forEach((tx) => {
-        const catName = tx.categories?.name || "Kategorisiz";
-        const key = `${catName}-${tx.type}`;
+        const cat = tx.categories;
+        // Alt kategori ise ana kategorisinin adını bul, yoksa kendi adını kullan
+        let displayName;
+        if (cat?.parent_id) {
+          const parent = categories.find((c) => c.id === cat.parent_id);
+          displayName = parent?.name || cat?.name || "Kategorisiz";
+        } else {
+          displayName = cat?.name || "Kategorisiz";
+        }
+        const key = `${displayName}-${tx.type}`;
         if (!map[key]) {
-          map[key] = { name: catName, type: tx.type, total: 0 };
+          map[key] = { name: displayName, type: tx.type, total: 0 };
         }
         map[key].total += Number(tx.amount);
       });
     return Object.values(map).sort((a, b) => b.total - a.total);
-  }, [transactions]);
+  }, [transactions, categories]);
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">

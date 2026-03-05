@@ -111,7 +111,7 @@ export default function Reports() {
     // Görev 2: Sadece bu kullanıcıya ait yıllık verileri çek
     const { data, error } = await supabase
       .from("transactions")
-      .select("*, categories(name)")
+      .select("*, categories(name, parent_id)")
       .eq("user_id", user.id)
       .gte("date", startDate)
       .lt("date", endDate)
@@ -219,7 +219,15 @@ export default function Reports() {
       .filter((tx) => !tx.is_transfer)
       .forEach((tx) => {
         const txMonth = new Date(tx.date).getMonth();
-        const catName = tx.categories?.name || "Kategorisiz";
+        const cat = tx.categories;
+        // Alt kategori ise ana kategoriye topla
+        let catName;
+        if (cat?.parent_id) {
+          const parent = categories.find((c) => c.id === cat.parent_id);
+          catName = parent?.name || cat?.name || "Kategorisiz";
+        } else {
+          catName = cat?.name || "Kategorisiz";
+        }
 
         if (txMonth === compareMonth) {
           if (!currentCategoryMap[catName])

@@ -176,7 +176,7 @@ export default function Transactions() {
     // Görev 2: Sadece bu kullanıcıya ait işlemleri çek
     const { data, error } = await supabase
       .from("transactions")
-      .select("*, categories(name)")
+      .select("*, categories(name, parent_id)")
       .eq("user_id", user.id)
       .gte("date", startDate)
       .lt("date", endDate)
@@ -192,18 +192,50 @@ export default function Transactions() {
     setLoading(false);
   };
 
-  const filteredCategoryOptions = useMemo(() => {
-    return categories
-      .filter((c) => c.type === formData.type)
-      .map((c) => ({ value: c.id, label: c.name }));
-  }, [categories, formData.type]);
+  /**
+   * Kategorileri optgroup yapısına dönüştür:
+   * - Ana kategorilerin altında alt kategoriler gruplanır
+   * - Alt kategorisi olmayan ana kategoriler doğrudan seçilebilir
+   */
+  const buildGroupedOptions = (type) => {
+    if (!type) return { groups: [], standalone: [] };
+    const typeCats = categories.filter((c) => c.type === type);
+    const parents = typeCats.filter((c) => !c.parent_id);
+    const children = typeCats.filter((c) => c.parent_id);
 
-  const editCategoryOptions = useMemo(() => {
-    if (!editData) return [];
-    return categories
-      .filter((c) => c.type === editData.type)
-      .map((c) => ({ value: c.id, label: c.name }));
-  }, [categories, editData?.type]);
+    const groups = [];
+    const standalone = [];
+
+    parents.forEach((parent) => {
+      const kids = children.filter((c) => c.parent_id === parent.id);
+      if (kids.length > 0) {
+        // Ana kategorinin altına alt kategoriler gruplanır
+        // Ana kategori de seçilebilir olarak grubun içine eklenir
+        groups.push({
+          label: parent.name,
+          options: [
+            { value: parent.id, label: `${parent.name} (Genel)` },
+            ...kids.map((k) => ({ value: k.id, label: k.name })),
+          ],
+        });
+      } else {
+        // Alt kategorisi yok → doğrudan seçilebilir
+        standalone.push({ value: parent.id, label: parent.name });
+      }
+    });
+
+    return { groups, standalone };
+  };
+
+  const formCategoryGrouped = useMemo(
+    () => buildGroupedOptions(formData.type),
+    [categories, formData.type],
+  );
+
+  const editCategoryGrouped = useMemo(
+    () => buildGroupedOptions(editData?.type),
+    [categories, editData?.type],
+  );
 
   // ─── Filtered & searched transactions ───
   const displayedTransactions = useMemo(() => {
@@ -584,19 +616,41 @@ export default function Transactions() {
                 placeholder="Gelir / Gider"
                 required
               />
-              <Select
-                label="Kategori"
-                id="txCategory"
-                value={formData.category_id}
-                onChange={(e) =>
-                  setFormData({ ...formData, category_id: e.target.value })
-                }
-                options={filteredCategoryOptions}
-                placeholder={
-                  formData.type ? "Kategori seçin" : "Önce tür seçin"
-                }
-                disabled={!formData.type}
-              />
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="txCategory"
+                  className="block text-sm font-medium text-text-primary"
+                >
+                  Kategori
+                </label>
+                <select
+                  id="txCategory"
+                  value={formData.category_id}
+                  onChange={(e) =>
+                    setFormData({ ...formData, category_id: e.target.value })
+                  }
+                  disabled={!formData.type}
+                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-text-primary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none cursor-pointer"
+                >
+                  <option value="">
+                    {formData.type ? "Kategori seçin" : "Önce tür seçin"}
+                  </option>
+                  {formCategoryGrouped.standalone.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                  {formCategoryGrouped.groups.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </div>
             </div>
             <Input
               label="Açıklama (opsiyonel)"
@@ -987,19 +1041,41 @@ export default function Transactions() {
                   placeholder="Gelir / Gider"
                   required
                 />
-                <Select
-                  label="Kategori"
-                  id="editCategory"
-                  value={editData.category_id}
-                  onChange={(e) =>
-                    setEditData({ ...editData, category_id: e.target.value })
-                  }
-                  options={editCategoryOptions}
-                  placeholder={
-                    editData.type ? "Kategori seçin" : "Önce tür seçin"
-                  }
-                  disabled={!editData.type}
-                />
+                <div className="space-y-1.5">
+                  <label
+                    htmlFor="editCategory"
+                    className="block text-sm font-medium text-text-primary"
+                  >
+                    Kategori
+                  </label>
+                  <select
+                    id="editCategory"
+                    value={editData.category_id}
+                    onChange={(e) =>
+                      setEditData({ ...editData, category_id: e.target.value })
+                    }
+                    disabled={!editData.type}
+                    className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-text-primary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none cursor-pointer"
+                  >
+                    <option value="">
+                      {editData.type ? "Kategori seçin" : "Önce tür seçin"}
+                    </option>
+                    {editCategoryGrouped.standalone.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                    {editCategoryGrouped.groups.map((group) => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
               </div>
               <Input
                 label="Açıklama (opsiyonel)"
