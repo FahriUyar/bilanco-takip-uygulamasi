@@ -327,6 +327,10 @@ export default function Transactions() {
       // Örn: 1000 / 3 → 333.33
       const monthlyAmount = Math.round((formData.amount / count) * 100) / 100;
 
+      // Ortak group_id: tüm taksitler bu UUID ile bağlanacak,
+      // ileride topluca silinebilir.
+      const groupId = crypto.randomUUID();
+
       const rows = Array.from({ length: count }, (_, i) => ({
         user_id: user.id,
         date: addMonths(formData.date, i),
@@ -337,6 +341,7 @@ export default function Transactions() {
           ? `${baseDesc} (${i + 1}/${count})`
           : `(${i + 1}/${count})`,
         is_transfer: formData.is_transfer,
+        group_id: groupId,
       }));
 
       const { error } = await supabase.from("transactions").insert(rows);
@@ -378,6 +383,20 @@ export default function Transactions() {
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) {
       setError("İşlem silinirken hata oluştu.");
+    } else {
+      setDeleteConfirm(null);
+      fetchTransactions();
+    }
+  };
+
+  // Grup silme: aynı group_id'ye sahip tüm taksitleri sil
+  const handleDeleteGroup = async (groupId) => {
+    const { error } = await supabase
+      .from("transactions")
+      .delete()
+      .eq("group_id", groupId);
+    if (error) {
+      setError("Taksitler silinirken hata oluştu.");
     } else {
       setDeleteConfirm(null);
       fetchTransactions();
@@ -1258,6 +1277,15 @@ export default function Transactions() {
                           >
                             Sil
                           </Button>
+                          {tx.group_id && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeleteGroup(tx.group_id)}
+                            >
+                              Tüm Taksitleri Sil
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

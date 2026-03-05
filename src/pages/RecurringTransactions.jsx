@@ -21,6 +21,20 @@ import {
   Clock,
 } from "lucide-react";
 
+/**
+ * Ay atlama hatasını önleyen güvenli tarih hesaplama.
+ * 31 Ocak + 1 ay → 28 Şubat (veya 29, artık yılda)
+ */
+function addMonths(dateStr, n) {
+  const d = new Date(dateStr);
+  const targetMonth = d.getMonth() + n;
+  const year = d.getFullYear() + Math.floor(targetMonth / 12);
+  const month = ((targetMonth % 12) + 12) % 12;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const day = Math.min(d.getDate(), lastDay);
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 const FREQUENCY_OPTIONS = [
   { value: "monthly", label: "Aylık" },
   { value: "weekly", label: "Haftalık" },
@@ -142,20 +156,61 @@ export default function RecurringTransactions() {
 
     let result;
     if (editingId) {
+      // Düzenleme: sadece recurring_transactions kaydını güncelle
       const { user_id, ...updatePayload } = payload;
       result = await supabase
         .from("recurring_transactions")
         .update(updatePayload)
         .eq("id", editingId);
     } else {
+      // Yeni kayıt: recurring_transactions'a ekle + 12 ay önden yaz
       result = await supabase.from("recurring_transactions").insert(payload);
+
+      if (!result.error) {
+        // Gelecek 12 ay için transactions tablosuna bulk insert
+        const groupId = crypto.randomUUID();
+        const today = new Date();
+        const dayOfMonth =
+          formData.frequency === "monthly"
+            ? formData.day_of_month
+            : today.getDate();
+
+        // Başlangıç tarihi: bu ayın ilgili günü
+        const startDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(dayOfMonth).padStart(2, "0")}`;
+
+        const rows = Array.from({ length: 12 }, (_, i) => ({
+          user_id: user.id,
+          date: addMonths(startDate, i),
+          amount: Number(formData.amount),
+          type: formData.type,
+          category_id: formData.category_id || null,
+          description: formData.description.trim()
+            ? `${formData.description.trim()} (otomatik)`
+            : "Otomatik tekrarlayan işlem",
+          group_id: groupId,
+        }));
+
+        const { error: bulkError } = await supabase
+          .from("transactions")
+          .insert(rows);
+
+        if (bulkError) {
+          console.error("Bulk insert error:", bulkError);
+          // Ana kayıt başarılı, ama önden yazma başarısız
+          setError(
+            "Tekrar tanımı eklendi ama gelecek işlemler oluşturulamadı.",
+          );
+        }
+      }
     }
 
     if (result.error) {
       setError(result.error.message);
     } else {
       setSuccess(
-        editingId ? "İşlem güncellendi!" : "Tekrarlayan işlem eklendi!",
+        editingId
+          ? "İşlem güncellendi!"
+          : "Tekrarlayan işlem eklendi ve 12 ay önden yazıldı!",
       );
       setTimeout(() => setSuccess(""), 3000);
       resetForm();
