@@ -25,6 +25,7 @@ const ProfileContext = createContext({});
 
 export function ProfileProvider({ children }) {
   const { user } = useAuth();
+  const userId = user?.id;
   const [appName, setAppName] = useState(null);
   const [salaryDay, setSalaryDay] = useState(1);
   const [profileLoading, setProfileLoading] = useState(true);
@@ -32,7 +33,7 @@ export function ProfileProvider({ children }) {
 
   // Giriş anında profili çek
   useEffect(() => {
-    if (!user) {
+    if (!userId) {
       setAppName(null);
       setSalaryDay(1);
       setProfileLoading(false);
@@ -48,7 +49,7 @@ export function ProfileProvider({ children }) {
         const { data, error } = await supabase
           .from("profiles")
           .select("app_name, salary_day")
-          .eq("id", user.id)
+          .eq("id", userId)
           .maybeSingle();
 
         if (!mounted) return;
@@ -76,7 +77,7 @@ export function ProfileProvider({ children }) {
     return () => {
       mounted = false;
     };
-  }, [user]);
+  }, [userId]);
 
   /**
    * Profil bilgilerini kaydeder (upsert).
@@ -84,9 +85,9 @@ export function ProfileProvider({ children }) {
    */
   const saveProfile = useCallback(
     async ({ appName: name, salaryDay: day }) => {
-      if (!user) return;
+      if (!userId) return;
 
-      const payload = { id: user.id };
+      const payload = { id: userId };
       if (name !== undefined) payload.app_name = name.trim();
       if (day !== undefined) payload.salary_day = Number(day);
 
@@ -100,7 +101,7 @@ export function ProfileProvider({ children }) {
       if (day !== undefined) setSalaryDay(Number(day));
       setNeedsOnboarding(false);
     },
-    [user],
+    [userId],
   );
 
   return (
