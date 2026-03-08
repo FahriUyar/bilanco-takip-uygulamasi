@@ -8,6 +8,7 @@ import Card from "../components/ui/Card";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import Select from "../components/ui/Select";
+import CategorySelect from "../components/ui/CategorySelect";
 import CurrencyInput from "../components/ui/CurrencyInput";
 import DatePicker from "../components/ui/DatePicker";
 import {
@@ -642,41 +643,16 @@ export default function Transactions() {
                 placeholder="Gelir / Gider"
                 required
               />
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="txCategory"
-                  className="block text-sm font-medium text-text-primary"
-                >
-                  Kategori
-                </label>
-                <select
-                  id="txCategory"
-                  value={formData.category_id}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category_id: e.target.value })
-                  }
-                  disabled={!formData.type}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-text-primary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none cursor-pointer"
-                >
-                  <option value="">
-                    {formData.type ? "Kategori seçin" : "Önce tür seçin"}
-                  </option>
-                  {formCategoryGrouped.standalone.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                  {formCategoryGrouped.groups.map((group) => (
-                    <optgroup key={group.label} label={group.label}>
-                      {group.options.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </div>
+              <CategorySelect
+                label="Kategori"
+                id="txCategory"
+                value={formData.category_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, category_id: e.target.value })
+                }
+                options={formCategoryGrouped}
+                disabled={!formData.type}
+              />
             </div>
             <Input
               label="Açıklama (opsiyonel)"
@@ -1116,41 +1092,16 @@ export default function Transactions() {
                   placeholder="Gelir / Gider"
                   required
                 />
-                <div className="space-y-1.5">
-                  <label
-                    htmlFor="editCategory"
-                    className="block text-sm font-medium text-text-primary"
-                  >
-                    Kategori
-                  </label>
-                  <select
-                    id="editCategory"
-                    value={editData.category_id}
-                    onChange={(e) =>
-                      setEditData({ ...editData, category_id: e.target.value })
-                    }
-                    disabled={!editData.type}
-                    className="w-full px-4 py-2.5 rounded-xl border border-border bg-white text-text-primary transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 appearance-none cursor-pointer"
-                  >
-                    <option value="">
-                      {editData.type ? "Kategori seçin" : "Önce tür seçin"}
-                    </option>
-                    {editCategoryGrouped.standalone.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                    {editCategoryGrouped.groups.map((group) => (
-                      <optgroup key={group.label} label={group.label}>
-                        {group.options.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                </div>
+                <CategorySelect
+                  label="Kategori"
+                  id="editCategory"
+                  value={editData.category_id}
+                  onChange={(e) =>
+                    setEditData({ ...editData, category_id: e.target.value })
+                  }
+                  options={editCategoryGrouped}
+                  disabled={!editData.type}
+                />
               </div>
               <Input
                 label="Açıklama (opsiyonel)"
