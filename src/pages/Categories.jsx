@@ -14,6 +14,7 @@ import {
   Loader2,
   AlertCircle,
   CornerDownRight,
+  CheckSquare,
 } from "lucide-react";
 
 const TYPE_OPTIONS = [
@@ -32,6 +33,10 @@ export default function Categories() {
   const [parentId, setParentId] = useState("");
   const [error, setError] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState(null);
+  
+  // Bulk Delete State
+  const [selectedCategories, setSelectedCategories] = useState([]);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
 
   useEffect(() => {
     fetchCategories();
@@ -102,6 +107,43 @@ export default function Categories() {
     }
   };
 
+  const toggleSelection = (id) => {
+    setSelectedCategories((prev) =>
+      prev.includes(id) ? prev.filter((catId) => catId !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedCategories.length === 0) return;
+
+    const confirmed = window.confirm(
+      `${selectedCategories.length} kategori silinecektir. Eğer seçtikleriniz arasında ana kategori varsa, ona bağlı alt kategoriler de (seçili olmasa bile) otomatik silinebilir. Bu işlem geri alınamaz. Onaylıyor musunuz?`
+    );
+
+    if (!confirmed) return;
+
+    setIsDeletingBulk(true);
+    setError("");
+
+    try {
+      const { error } = await supabase
+        .from("categories")
+        .delete()
+        .in("id", selectedCategories);
+
+      if (error) throw error;
+
+      // Başarılı olursa seçimi temizle ve listeyi yenile
+      setSelectedCategories([]);
+      fetchCategories();
+    } catch (err) {
+      console.error("Toplu silme hatası:", err);
+      setError("Toplu silme sırasında bir hata oluştu.");
+    } finally {
+      setIsDeletingBulk(false);
+    }
+  };
+
   /**
    * Kategorileri hiyerarşik sıraya diz:
    * Ana Kategori 1
@@ -155,18 +197,27 @@ export default function Categories() {
           cat.isChild ? `${childBgClass} ml-8` : bgClass
         }`}
       >
-        <span
-          className={`text-sm flex items-center gap-2 ${
-            cat.isChild
-              ? "text-text-secondary font-medium"
-              : "text-text-primary font-bold"
-          }`}
-        >
-          {cat.isChild && (
-            <CornerDownRight className="w-4 h-4 text-text-muted shrink-0" />
-          )}
-          {cat.name}
-        </span>
+        <div className="flex items-center gap-3">
+          {/* BULK DELETE CHECKBOX */}
+          <input
+            type="checkbox"
+            checked={selectedCategories.includes(cat.id)}
+            onChange={() => toggleSelection(cat.id)}
+            className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+          />
+          <span
+            className={`text-sm flex items-center gap-2 ${
+              cat.isChild
+                ? "text-text-secondary font-medium"
+                : "text-text-primary font-bold"
+            }`}
+          >
+            {cat.isChild && (
+              <CornerDownRight className="w-4 h-4 text-text-muted shrink-0" />
+            )}
+            {cat.name}
+          </span>
+        </div>
         {deleteConfirm === cat.id ? (
           <div className="flex flex-col items-end gap-2 animate-fade-in pl-4">
             {!cat.isChild && categories.some((c) => c.parent_id === cat.id) && (
@@ -301,15 +352,35 @@ export default function Categories() {
         </div>
       )}
 
-      {/* Loading */}
+      {/* Loading & Lists */}
       {loading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Income Categories */}
-          <Card>
+        <div className="space-y-4">
+          {/* Toplu Silme Butonu - Yalnızca seçim varsa gösterilir */}
+          {selectedCategories.length > 0 && (
+            <div className="flex justify-end animate-fade-in mb-2">
+              <Button
+                variant="danger"
+                onClick={handleBulkDelete}
+                disabled={isDeletingBulk}
+                className="flex items-center gap-2 shadow-sm"
+              >
+                {isDeletingBulk ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckSquare className="w-4 h-4" />
+                )}
+                Seçilenleri Sil ({selectedCategories.length})
+              </Button>
+            </div>
+          )}
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Income Categories */}
+            <Card>
             <div className="flex items-center gap-2 mb-4">
               <TrendingUp className="w-5 h-5 text-success-600" />
               <h2 className="text-lg font-semibold text-text-primary">
@@ -355,6 +426,7 @@ export default function Categories() {
               </ul>
             )}
           </Card>
+        </div>
         </div>
       )}
     </div>
