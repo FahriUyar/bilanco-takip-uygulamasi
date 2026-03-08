@@ -90,7 +90,7 @@ export default function CategorySelect({
 
         {/* Açılır Menü (Panel) */}
         {isOpen && (
-          <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-xl shadow-xl max-h-60 overflow-y-auto py-1 animate-fade-in custom-scrollbar">
+          <div className="absolute z-50 w-full mt-1 bg-white border border-border rounded-xl shadow-xl max-h-96 overflow-y-auto py-1 animate-fade-in custom-scrollbar">
           
           {/* Tekil (Standalone) Kategoriler */}
           {options.standalone?.length > 0 && (
