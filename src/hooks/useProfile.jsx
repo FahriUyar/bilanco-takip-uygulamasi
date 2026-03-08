@@ -50,7 +50,7 @@ export function ProfileProvider({ children }) {
       try {
         const { data, error } = await supabase
           .from("profiles")
-          .select("app_name, salary_day, account_type")
+          .select("app_name, salary_day, account_type, is_onboarded")
           .eq("id", userId)
           .maybeSingle();
 
@@ -59,7 +59,11 @@ export function ProfileProvider({ children }) {
         if (error) {
           console.error("Profil yükleme hatası:", error);
           setNeedsOnboarding(true);
-        } else if (!data || !data.app_name) {
+        } else if (!data || data.is_onboarded === false) {
+          // If profile doesn't exist, or is_onboarded is explicitly false (or null)
+          setAppName(data?.app_name || null);
+          setSalaryDay(data?.salary_day ?? 1);
+          setAccountType(data?.account_type || "personal");
           setNeedsOnboarding(true);
         } else {
           setAppName(data.app_name);
@@ -87,13 +91,14 @@ export function ProfileProvider({ children }) {
    * Hem onboarding hem ayarlar sayfasından çağrılır.
    */
   const saveProfile = useCallback(
-    async ({ appName: name, salaryDay: day, accountType: type }) => {
+    async ({ appName: name, salaryDay: day, accountType: type, isOnboarded }) => {
       if (!userId) return;
 
       const payload = { id: userId };
       if (name !== undefined) payload.app_name = name.trim();
       if (day !== undefined) payload.salary_day = Number(day);
       if (type !== undefined) payload.account_type = type;
+      if (isOnboarded !== undefined) payload.is_onboarded = isOnboarded;
 
       const { error } = await supabase
         .from("profiles")
@@ -104,7 +109,7 @@ export function ProfileProvider({ children }) {
       if (name !== undefined) setAppName(name.trim());
       if (day !== undefined) setSalaryDay(Number(day));
       if (type !== undefined) setAccountType(type);
-      setNeedsOnboarding(false);
+      if (isOnboarded) setNeedsOnboarding(false);
     },
     [userId],
   );
