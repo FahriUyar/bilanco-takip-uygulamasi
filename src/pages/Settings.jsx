@@ -14,6 +14,7 @@ import {
   DownloadCloud,
 } from "lucide-react";
 import { defaultCategories } from "../lib/constants";
+import Card from "../components/ui/Card";
 
 /**
  * Settings (Ayarlar) Sayfası
