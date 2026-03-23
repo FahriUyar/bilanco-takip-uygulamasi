@@ -111,6 +111,7 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(getLastDayOfMonth());
   const [activeQuickSelect, setActiveQuickSelect] = useState("thisMonth");
   const [yearlyData, setYearlyData] = useState([]);
+  const [barChartData, setBarChartData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   
@@ -187,6 +188,13 @@ export default function Reports() {
     fetchYearlyData();
   }, [startDate, endDate]);
 
+  // BarChart için yıl bazlı veri çek (global tarih filtresinden bağımsız)
+  const selectedYear = startDate ? parseInt(startDate.split("-")[0], 10) : new Date().getFullYear();
+
+  useEffect(() => {
+    fetchBarChartData();
+  }, [selectedYear]);
+
   const fetchCategories = async () => {
     // Görev 2: Sadece bu kullanıcıya ait kategorileri çek
     const { data } = await supabase
@@ -219,7 +227,27 @@ export default function Reports() {
     setLoading(false);
   };
 
-  // ─── Monthly breakdown ───
+  const fetchBarChartData = async () => {
+    const yearStart = `${selectedYear}-01-01`;
+    const yearEnd = `${selectedYear}-12-31`;
+
+    const { data, error } = await supabase
+      .from("transactions")
+      .select("*, categories(name, parent_id)")
+      .eq("user_id", user.id)
+      .gte("date", yearStart)
+      .lte("date", yearEnd)
+      .order("date", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setBarChartData([]);
+    } else {
+      setBarChartData(data || []);
+    }
+  };
+
+  // ─── Monthly breakdown (global filtreli veri — karşılaştırma bölümü için) ───
   const monthlyBreakdown = useMemo(() => {
     const months = Array.from({ length: 12 }, (_, i) => ({
       month: i,
@@ -236,6 +264,24 @@ export default function Reports() {
 
     return months;
   }, [yearlyData]);
+
+  // ─── BarChart 12 aylık breakdown (yıl bazlı, global filtreden bağımsız) ───
+  const barChartMonthly = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, i) => ({
+      month: i,
+      income: 0,
+      expense: 0,
+    }));
+
+    barChartData.forEach((tx) => {
+      const m = new Date(tx.date).getMonth();
+      const amount = Number(tx.amount);
+      if (tx.type === "income") months[m].income += amount;
+      else if (!tx.is_transfer) months[m].expense += amount;
+    });
+
+    return months;
+  }, [barChartData]);
 
   // ─── Expense Structure (Parent Category Aggregation) ───
   const expenseChartData = useMemo(() => {
@@ -308,19 +354,19 @@ export default function Reports() {
 
   // ─── Yearly totals ───
   const yearlyTotals = useMemo(() => {
-    const income = monthlyBreakdown.reduce((s, m) => s + m.income, 0);
-    const expense = monthlyBreakdown.reduce((s, m) => s + m.expense, 0);
+    const income = barChartMonthly.reduce((s, m) => s + m.income, 0);
+    const expense = barChartMonthly.reduce((s, m) => s + m.expense, 0);
     return { income, expense, net: income - expense };
-  }, [monthlyBreakdown]);
+  }, [barChartMonthly]);
 
   // ─── Bar chart calculations ───
   const chartData = useMemo(() => {
     const maxValue = Math.max(
-      ...monthlyBreakdown.map((m) => Math.max(m.income, m.expense)),
+      ...barChartMonthly.map((m) => Math.max(m.income, m.expense)),
       1,
     );
-    return { maxValue, months: monthlyBreakdown };
-  }, [monthlyBreakdown]);
+    return { maxValue, months: barChartMonthly };
+  }, [barChartMonthly]);
 
   // ─── Category trend (last 6 months from current date) ───
   const categoryTrendData = useMemo(() => {
