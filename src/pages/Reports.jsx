@@ -90,6 +90,13 @@ const formatPercent = (value) => {
   return `${sign}${value.toFixed(1)}%`;
 };
 
+const getNextDayStr = (dateStr) => {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
+
 export default function Reports() {
   // Görev 1: Kapıdaki kişiyi öğren
   const { user } = useAuth();
@@ -159,8 +166,17 @@ export default function Reports() {
     setActiveQuickSelect("");
     if (type === "start") {
       setStartDate(val);
+      
+      const nextDay = getNextDayStr(val);
+      if (endDate && new Date(endDate) < new Date(nextDay)) {
+        setEndDate(nextDay);
+      }
+      
       // Görev 1: Başlangıç tarihi seçildiğinde Bitiş tarihi takvimini otomatik aç
       setEndDateOpen(true);
+      setTimeout(() => {
+        document.getElementById("end-date-picker")?.focus();
+      }, 50);
     }
     if (type === "end") {
       setEndDate(val);
@@ -571,11 +587,14 @@ export default function Reports() {
                 />
                 <span className="text-text-muted">-</span>
                 <DatePicker
+                  id="end-date-picker"
                   value={endDate}
                   onChange={(val) => handleManualDateChange("end", val)}
                   className="w-[140px] sm:w-[160px] py-2 text-sm"
                   isOpen={endDateOpen}
                   onOpenChange={setEndDateOpen}
+                  minDate={getNextDayStr(startDate)}
+                  align="right"
                 />
               </div>
             </div>

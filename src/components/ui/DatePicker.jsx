@@ -28,6 +28,8 @@ export default function DatePicker({
   className = "",
   isOpen, // Optional controlled state
   onOpenChange, // Optional callback for open state changes
+  minDate, // "YYYY-MM-DD"
+  align = "left", // "left" | "right"
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   
@@ -53,12 +55,16 @@ export default function DatePicker({
   useEffect(() => {
     const handler = (e) => {
       if (ref.current && !ref.current.contains(e.target)) {
-        handleOpenChange(false);
+        if (onOpenChange) {
+          onOpenChange(false);
+        } else {
+          setInternalOpen(false);
+        }
       }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
+  }, [onOpenChange]);
 
   const prevMonth = () => {
     if (viewMonth === 0) {
@@ -129,7 +135,7 @@ export default function DatePicker({
     : "Tarih seçin";
 
   return (
-    <div className="space-y-1.5" ref={ref}>
+    <div className="space-y-1.5 relative" ref={ref}>
       {label && (
         <label
           htmlFor={id}
@@ -154,7 +160,7 @@ export default function DatePicker({
 
       {/* Dropdown Calendar */}
       {open && (
-        <div className="absolute z-50 mt-1 w-[320px] bg-white rounded-2xl shadow-xl border border-border p-4 animate-fade-in">
+        <div className={`absolute z-50 mt-1 w-[320px] bg-white rounded-2xl shadow-xl border border-border p-4 animate-fade-in ${align === "right" ? "right-0" : "left-0"}`}>
           {/* Header */}
           <div className="flex items-center justify-between mb-3">
             <button
@@ -190,25 +196,38 @@ export default function DatePicker({
 
           {/* Days grid */}
           <div className="grid grid-cols-7 gap-1">
-            {cells.map((cell, idx) => (
-              <button
-                key={idx}
-                type="button"
-                disabled={!cell.current}
-                onClick={() => cell.current && selectDay(cell.day)}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm transition-all duration-150 cursor-pointer ${
-                  !cell.current
-                    ? "text-text-muted/40 cursor-default"
-                    : cell.current && isSelected(cell.day)
-                      ? "bg-primary-600 text-white font-semibold shadow-sm"
-                      : cell.current && isToday(cell.day)
-                        ? "bg-primary-50 text-primary-700 font-semibold ring-1 ring-primary-200"
-                        : "text-text-primary hover:bg-gray-100"
-                }`}
-              >
-                {cell.day}
-              </button>
-            ))}
+            {cells.map((cell, idx) => {
+              let disabled = !cell.current;
+              if (cell.current && minDate) {
+                const cellDate = new Date(viewYear, viewMonth, cell.day);
+                const minD = new Date(minDate + "T00:00:00");
+                cellDate.setHours(0, 0, 0, 0);
+                minD.setHours(0, 0, 0, 0);
+                if (cellDate < minD) {
+                  disabled = true;
+                }
+              }
+
+              return (
+                <button
+                  key={idx}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => !disabled && selectDay(cell.day)}
+                  className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm transition-all duration-150 ${
+                    disabled
+                      ? "text-text-muted/40 cursor-not-allowed"
+                      : cell.current && isSelected(cell.day)
+                        ? "bg-primary-600 text-white font-semibold shadow-sm cursor-pointer"
+                        : cell.current && isToday(cell.day)
+                          ? "bg-primary-50 text-primary-700 font-semibold ring-1 ring-primary-200 cursor-pointer"
+                          : "text-text-primary hover:bg-gray-100 cursor-pointer"
+                  }`}
+                >
+                  {cell.day}
+                </button>
+              );
+            })}
           </div>
 
           {/* Footer */}
