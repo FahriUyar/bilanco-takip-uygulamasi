@@ -849,6 +849,11 @@ export default function Reports() {
                     const incomeH = (m.income / periodChartData.maxValue) * 220;
                     const expenseH = (m.expense / periodChartData.maxValue) * 220;
 
+                    // Tick skipping (Option B) - Etiket seyreltme
+                    // Ekranda en fazla 8 etiket gösterilsin (Örn: 30 gün için 4 günde bir)
+                    const labelStep = Math.max(1, Math.ceil(periodChartData.items.length / 8));
+                    const showLabel = i % labelStep === 0 || i === periodChartData.items.length - 1;
+
                     return (
                       <g
                         key={i}
@@ -889,17 +894,19 @@ export default function Reports() {
                           className="transition-all duration-300"
                           opacity={hoveredBar === i ? 1 : 0.85}
                         />
-                        {/* Label */}
-                        <text
-                          x={groupX + centerOffset}
-                          y="310"
-                          textAnchor="middle"
-                          className="fill-text-secondary"
-                          fontSize={periodChartData.items.length > 20 ? "8" : "10"}
-                          fontWeight={hoveredBar === i ? "600" : "400"}
-                        >
-                          {m.label}
-                        </text>
+                        {/* Label (Seyreltilmiş - Tick Skipping) */}
+                        {showLabel && (
+                          <text
+                            x={groupX + centerOffset}
+                            y="310"
+                            textAnchor="middle"
+                            className="fill-text-secondary"
+                            fontSize="10"
+                            fontWeight={hoveredBar === i ? "600" : "400"}
+                          >
+                            {m.label}
+                          </text>
+                        )}
 
                         {/* Tooltip */}
                         {hoveredBar === i && (
