@@ -51,6 +51,19 @@ export default function DatePicker({
   const [viewYear, setViewYear] = useState(selected.getFullYear());
   const [viewMonth, setViewMonth] = useState(selected.getMonth());
 
+  // Takvim açıldığında veya referans tarihler dışarıdan değiştiğinde görünümü güncelle
+  useEffect(() => {
+    if (open) {
+      const referenceDate = value
+        ? new Date(value + "T00:00:00")
+        : minDate
+          ? new Date(minDate + "T00:00:00")
+          : new Date();
+      setViewYear(referenceDate.getFullYear());
+      setViewMonth(referenceDate.getMonth());
+    }
+  }, [open, value, minDate]);
+
   // Dışarıya tıklayınca kapat
   useEffect(() => {
     const handler = (e) => {
