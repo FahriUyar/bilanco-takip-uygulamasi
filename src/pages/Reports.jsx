@@ -118,6 +118,7 @@ export default function Reports() {
   const [endDate, setEndDate] = useState(getLastDayOfMonth());
   const [activeQuickSelect, setActiveQuickSelect] = useState("thisMonth");
   const [yearlyData, setYearlyData] = useState([]);
+  const [previousPeriodData, setPreviousPeriodData] = useState({ income: 0, expense: 0, net: 0 });
   const [barChartData, setBarChartData] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,21 +226,56 @@ export default function Reports() {
     if (!startDate || !endDate) return;
     setLoading(true);
 
-    // Görev 2: Sadece bu kullanıcıya ait ve seçili tarih aralığındaki verileri çek
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*, categories(name, parent_id)")
-      .eq("user_id", user.id)
-      .gte("date", startDate)
-      .lte("date", endDate)
-      .order("date", { ascending: true });
+    const sDate = new Date(startDate);
+    const eDate = new Date(endDate);
+    const diffTime = Math.abs(eDate - sDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    if (error) {
-      console.error(error);
+    const prevEndDateObj = new Date(sDate);
+    prevEndDateObj.setDate(prevEndDateObj.getDate() - 1);
+    const prevStartDateObj = new Date(prevEndDateObj);
+    prevStartDateObj.setDate(prevStartDateObj.getDate() - diffDays + 1);
+
+    const prevStartStr = `${prevStartDateObj.getFullYear()}-${String(prevStartDateObj.getMonth() + 1).padStart(2, "0")}-${String(prevStartDateObj.getDate()).padStart(2, "0")}`;
+    const prevEndStr = `${prevEndDateObj.getFullYear()}-${String(prevEndDateObj.getMonth() + 1).padStart(2, "0")}-${String(prevEndDateObj.getDate()).padStart(2, "0")}`;
+
+    const [currentRes, previousRes] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("*, categories(name, parent_id)")
+        .eq("user_id", user.id)
+        .gte("date", startDate)
+        .lte("date", endDate)
+        .order("date", { ascending: true }),
+      supabase
+        .from("transactions")
+        .select("amount, type, is_transfer")
+        .eq("user_id", user.id)
+        .gte("date", prevStartStr)
+        .lte("date", prevEndStr)
+    ]);
+
+    if (currentRes.error) {
+      console.error(currentRes.error);
       setYearlyData([]);
     } else {
-      setYearlyData(data || []);
+      setYearlyData(currentRes.data || []);
     }
+
+    if (previousRes.error) {
+      console.error(previousRes.error);
+      setPreviousPeriodData({ income: 0, expense: 0, net: 0 });
+    } else {
+      let pInc = 0;
+      let pExp = 0;
+      previousRes.data?.forEach(tx => {
+        const amt = Number(tx.amount);
+        if (tx.type === "income") pInc += amt;
+        else if (!tx.is_transfer) pExp += amt;
+      });
+      setPreviousPeriodData({ income: pInc, expense: pExp, net: pInc - pExp });
+    }
+
     setLoading(false);
   };
 
@@ -368,21 +404,94 @@ export default function Reports() {
       .sort((a, b) => new Date(b.date) - new Date(a.date));
   }, [selectedParentCategory, yearlyData]);
 
-  // ─── Yearly totals ───
-  const yearlyTotals = useMemo(() => {
-    const income = barChartMonthly.reduce((s, m) => s + m.income, 0);
-    const expense = barChartMonthly.reduce((s, m) => s + m.expense, 0);
-    return { income, expense, net: income - expense };
-  }, [barChartMonthly]);
+  // ─── Period Totals ───
+  const periodTotals = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    yearlyData.forEach(tx => {
+      const amount = Number(tx.amount);
+      if (tx.type === "income") income += amount;
+      else if (!tx.is_transfer) expense += amount;
+    });
+    const net = income - expense;
+    
+    const calcChange = (current, previous) => {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    };
+    
+    return {
+      income,
+      expense,
+      net,
+      incomeChange: calcChange(income, previousPeriodData.income),
+      expenseChange: calcChange(expense, previousPeriodData.expense),
+      netChange: calcChange(net, previousPeriodData.net)
+    };
+  }, [yearlyData, previousPeriodData]);
 
-  // ─── Bar chart calculations ───
-  const chartData = useMemo(() => {
-    const maxValue = Math.max(
-      ...barChartMonthly.map((m) => Math.max(m.income, m.expense)),
-      1,
-    );
-    return { maxValue, months: barChartMonthly };
-  }, [barChartMonthly]);
+  // ─── Dynamic Bar chart calculations ───
+  const periodChartData = useMemo(() => {
+    if (!startDate || !endDate) return { maxValue: 1, items: [] };
+    
+    const sDate = new Date(startDate);
+    const eDate = new Date(endDate);
+    const diffDays = Math.ceil(Math.abs(eDate - sDate) / (1000 * 60 * 60 * 24)) + 1;
+
+    const isDaily = diffDays <= 45; 
+    
+    const items = [];
+    
+    if (isDaily) {
+      for (let i = 0; i < diffDays; i++) {
+        const d = new Date(sDate);
+        d.setDate(d.getDate() + i);
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        items.push({
+          key,
+          label: `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`,
+          income: 0,
+          expense: 0
+        });
+      }
+    } else {
+      let currentMonthDate = new Date(sDate.getFullYear(), sDate.getMonth(), 1);
+      const endMonthDate = new Date(eDate.getFullYear(), eDate.getMonth(), 1);
+      
+      while (currentMonthDate <= endMonthDate) {
+        const key = `${currentMonthDate.getFullYear()}-${String(currentMonthDate.getMonth() + 1).padStart(2, "0")}`;
+        items.push({
+          key,
+          label: `${MONTH_SHORT[currentMonthDate.getMonth()]} ${currentMonthDate.getFullYear() === now.getFullYear() ? '' : currentMonthDate.getFullYear()}`.trim(),
+          income: 0,
+          expense: 0
+        });
+        currentMonthDate.setMonth(currentMonthDate.getMonth() + 1);
+      }
+    }
+    
+    yearlyData.forEach(tx => {
+      const txDate = new Date(tx.date);
+      let key;
+      if (isDaily) {
+        // Find by exact day key depending on how the date string is formatted in yearlyData
+        key = tx.date; 
+      } else {
+        key = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, "0")}`;
+      }
+      
+      const target = items.find(i => i.key === key);
+      if (target) {
+        const amount = Number(tx.amount);
+        if (tx.type === "income") target.income += amount;
+        else if (!tx.is_transfer) target.expense += amount;
+      }
+    });
+    
+    const maxValue = Math.max(...items.map(i => Math.max(i.income, i.expense)), 1);
+
+    return { maxValue, items, isDaily };
+  }, [yearlyData, startDate, endDate, now]);
 
   // ─── Category trend (last 6 months from current date) ───
   const categoryTrendData = useMemo(() => {
@@ -577,7 +686,13 @@ export default function Reports() {
             {/* Date Range Selector */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-text-primary">
-                Genel Özet
+                {(() => {
+                  const s = new Date(startDate);
+                  const e = new Date(endDate);
+                  const sStr = `${s.getDate()} ${MONTH_SHORT[s.getMonth()]}`;
+                  const eStr = `${e.getDate()} ${MONTH_SHORT[e.getMonth()]}`;
+                  return `Seçili Dönem Özeti (${sStr} - ${eStr})`;
+                })()}
               </h2>
               <div className="flex items-center gap-3">
                 <DatePicker
@@ -600,70 +715,81 @@ export default function Reports() {
             </div>
           </div>
 
-          {loading ? (
-            <div className="flex justify-center py-20 border border-gray-100 rounded-xl bg-gray-50/50">
-              <Loader2 className="w-8 h-8 text-primary-600 animate-spin" />
-            </div>
-          ) : (
-            <>
-              <div className="space-y-4">
-                {/* Yearly Summary Cards */}
-                <div className="grid sm:grid-cols-3 gap-4">
+          {/* Opacity/Loading overlay */}
+          <div className={`transition-opacity duration-300 relative ${loading ? 'opacity-40 pointer-events-none' : 'opacity-100'}`}>
+            {loading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center">
+                <Loader2 className="w-10 h-10 text-primary-500 animate-spin" />
+              </div>
+            )}
+            
+            <div className="space-y-4">
+              {/* Yearly Summary Cards */}
+              <div className="grid sm:grid-cols-3 gap-4">
               <Card className="relative overflow-hidden">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-success-50 flex items-center justify-center">
-                    <TrendingUp className="w-4 h-4 text-success-600" />
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-success-50 flex items-center justify-center">
+                      <TrendingUp className="w-4 h-4 text-success-600" />
+                    </div>
+                    <span className="text-sm text-text-secondary">
+                      Toplam Gelir
+                    </span>
                   </div>
-                  <span className="text-sm text-text-secondary">
-                    Toplam Gelir
-                  </span>
+                  <ChangeIndicator value={periodTotals.incomeChange} />
                 </div>
                 <p className="text-xl font-bold text-success-700">
-                  {formatCurrencyFull(yearlyTotals.income)}
+                  {formatCurrencyFull(periodTotals.income)}
                 </p>
               </Card>
               <Card className="relative overflow-hidden">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-8 h-8 rounded-lg bg-danger-50 flex items-center justify-center">
-                    <TrendingDown className="w-4 h-4 text-danger-600" />
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-danger-50 flex items-center justify-center">
+                      <TrendingDown className="w-4 h-4 text-danger-600" />
+                    </div>
+                    <span className="text-sm text-text-secondary">
+                      Toplam Gider
+                    </span>
                   </div>
-                  <span className="text-sm text-text-secondary">
-                    Toplam Gider
-                  </span>
+                  <ChangeIndicator value={periodTotals.expenseChange} inverse />
                 </div>
                 <p className="text-xl font-bold text-danger-700">
-                  {formatCurrencyFull(yearlyTotals.expense)}
+                  {formatCurrencyFull(periodTotals.expense)}
                 </p>
               </Card>
               <Card
                 className={`relative overflow-hidden ring-1 ${
-                  yearlyTotals.net >= 0 ? "ring-success-200" : "ring-danger-200"
+                  periodTotals.net >= 0 ? "ring-success-200" : "ring-danger-200"
                 }`}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <div
-                    className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                      yearlyTotals.net >= 0 ? "bg-primary-50" : "bg-warning-50"
-                    }`}
-                  >
-                    <Wallet
-                      className={`w-4 h-4 ${
-                        yearlyTotals.net >= 0
-                          ? "text-primary-600"
-                          : "text-warning-600"
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-2">
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        periodTotals.net >= 0 ? "bg-primary-50" : "bg-warning-50"
                       }`}
-                    />
+                    >
+                      <Wallet
+                        className={`w-4 h-4 ${
+                          periodTotals.net >= 0
+                            ? "text-primary-600"
+                            : "text-warning-600"
+                        }`}
+                      />
+                    </div>
+                    <span className="text-sm text-text-secondary">Net Durum</span>
                   </div>
-                  <span className="text-sm text-text-secondary">Net Durum</span>
+                  <ChangeIndicator value={periodTotals.netChange} />
                 </div>
                 <p
                   className={`text-xl font-bold ${
-                    yearlyTotals.net >= 0
+                    periodTotals.net >= 0
                       ? "text-primary-700"
                       : "text-danger-700"
                   }`}
                 >
-                  {formatCurrencyFull(yearlyTotals.net)}
+                  {formatCurrencyFull(periodTotals.net)}
                 </p>
               </Card>
             </div>
@@ -700,18 +826,28 @@ export default function Reports() {
                           className="fill-text-muted"
                           fontSize="9"
                         >
-                          {formatCurrency(chartData.maxValue * ratio)}
+                          {formatCurrency(periodChartData.maxValue * ratio)}
                         </text>
                       </g>
                     );
                   })}
 
                   {/* Bars */}
-                  {chartData.months.map((m, i) => {
-                    const groupX = 60 + i * 54;
-                    const barWidth = 18;
-                    const incomeH = (m.income / chartData.maxValue) * 220;
-                    const expenseH = (m.expense / chartData.maxValue) * 220;
+                  {periodChartData.items.map((m, i) => {
+                    const availableWidth = 640; 
+                    const groupWidth = Math.max(availableWidth / Math.max(periodChartData.items.length, 1), 10);
+                    const groupX = 60 + i * groupWidth;
+                    
+                    const maxBarWidth = 24; 
+                    const calculatedBarWidth = groupWidth * 0.35;
+                    const barWidth = Math.max(Math.min(calculatedBarWidth, maxBarWidth), 2);
+                    
+                    const centerOffset = groupWidth / 2;
+                    const incomeX = groupX + centerOffset - barWidth - 1;
+                    const expenseX = groupX + centerOffset + 1;
+
+                    const incomeH = (m.income / periodChartData.maxValue) * 220;
+                    const expenseH = (m.expense / periodChartData.maxValue) * 220;
 
                     return (
                       <g
@@ -723,9 +859,9 @@ export default function Reports() {
                         {/* Hover background */}
                         {hoveredBar === i && (
                           <rect
-                            x={groupX - 6}
+                            x={groupX}
                             y="60"
-                            width={barWidth * 2 + 16}
+                            width={groupWidth}
                             height="240"
                             fill="#f8fafc"
                             rx="4"
@@ -733,7 +869,7 @@ export default function Reports() {
                         )}
                         {/* Income bar */}
                         <rect
-                          x={groupX}
+                          x={incomeX}
                           y={290 - incomeH}
                           width={barWidth}
                           height={Math.max(incomeH, 0)}
@@ -744,7 +880,7 @@ export default function Reports() {
                         />
                         {/* Expense bar */}
                         <rect
-                          x={groupX + barWidth + 4}
+                          x={expenseX}
                           y={290 - expenseH}
                           width={barWidth}
                           height={Math.max(expenseH, 0)}
@@ -753,23 +889,23 @@ export default function Reports() {
                           className="transition-all duration-300"
                           opacity={hoveredBar === i ? 1 : 0.85}
                         />
-                        {/* Month label */}
+                        {/* Label */}
                         <text
-                          x={groupX + barWidth + 2}
+                          x={groupX + centerOffset}
                           y="310"
                           textAnchor="middle"
                           className="fill-text-secondary"
-                          fontSize="10"
+                          fontSize={periodChartData.items.length > 20 ? "8" : "10"}
                           fontWeight={hoveredBar === i ? "600" : "400"}
                         >
-                          {MONTH_SHORT[i]}
+                          {m.label}
                         </text>
 
                         {/* Tooltip */}
                         {hoveredBar === i && (
                           <g>
                             <rect
-                              x={groupX - 25}
+                              x={groupX + centerOffset - 65}
                               y="4"
                               width="130"
                               height="48"
@@ -779,7 +915,7 @@ export default function Reports() {
                               filter="drop-shadow(0 2px 6px rgba(0,0,0,0.1))"
                             />
                             <text
-                              x={groupX - 16}
+                              x={groupX + centerOffset - 56}
                               y="24"
                               fontSize="11"
                               className="fill-success-700"
@@ -788,7 +924,7 @@ export default function Reports() {
                               Gelir: {formatCurrency(m.income)}
                             </text>
                             <text
-                              x={groupX - 16}
+                              x={groupX + centerOffset - 56}
                               y="42"
                               fontSize="11"
                               className="fill-danger-700"
@@ -1274,8 +1410,7 @@ export default function Reports() {
               )}
             </Card>
           </div>
-          </>
-        )}
+        </div>
     </div>
   );
 }
