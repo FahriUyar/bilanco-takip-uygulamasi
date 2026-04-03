@@ -688,8 +688,8 @@ export default function Transactions() {
                 görsel olarak ayırıp daha kullanıcı dostu gösteriyoruz. */}
             <div className="bg-gray-50 p-5 rounded-xl border border-gray-100 mt-4 space-y-4 animate-fade-in shadow-sm">
               
-              {/* Ödeme Yöntemi Kartları (Sadece Gider ve Normal İşlem ise) */}
-              {formData.type === "expense" && !formData.is_transfer && (
+              {/* Ödeme Yöntemi Kartları (Sadece Gider ise) */}
+              {formData.type === "expense" && (
                 <div className="space-y-2">
                   <span className="text-sm font-semibold text-gray-700">
                     Ödeme Yöntemi
@@ -800,42 +800,6 @@ export default function Transactions() {
                 </div>
               )}
 
-              {/* ── KREDİ KARTI / BORÇ ÖDEMESİ ── */}
-              {formData.type === "expense" && (
-                <div className="pt-2 border-t border-gray-200/60 animate-fade-in mt-2 flex flex-col gap-3">
-                  <label className="flex items-start gap-4 cursor-pointer group mt-2">
-                    <div className="relative flex items-center mt-0.5">
-                      <input
-                        type="checkbox"
-                        id="txIsTransfer"
-                        checked={formData.is_transfer}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            is_transfer: e.target.checked,
-                            // Borç ödemesi ise, para nakitten çıkar
-                            payment_method: e.target.checked
-                              ? "cash"
-                              : formData.payment_method,
-                            isInstallment: e.target.checked ? false : formData.isInstallment,
-                            installmentCount: e.target.checked ? 3 : formData.installmentCount,
-                          })
-                        }
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-blue-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600 cursor-pointer"></div>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-semibold text-gray-800 group-hover:text-blue-600 flex items-center gap-2 transition-colors">
-                        Ekstre veya Borç Ödemesi
-                      </span>
-                      <span className="text-xs text-gray-500 mt-1 leading-relaxed">
-                        Bu işlem aylık gider grafiklerinize yansımaz, sadece kasadaki nakit ve borç bakiyenizi günceller.
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              )}
             </div>
 
             <div className="flex justify-end">
@@ -1149,8 +1113,7 @@ export default function Transactions() {
               {editData.type === "expense" && (
                 <div className="space-y-3 animate-fade-in">
                   {/* Ödeme Yöntemi */}
-                  {!editData.is_transfer && (
-                    <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4">
                       <span className="text-sm font-medium text-text-secondary">
                         Ödeme Yöntemi:
                       </span>
@@ -1187,31 +1150,7 @@ export default function Transactions() {
                           💳 Kredi Kartı
                         </span>
                       </label>
-                    </div>
-                  )}
-
-                  {/* Borç Ödemesi */}
-                  <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={editData.is_transfer}
-                      onChange={(e) =>
-                        setEditData({
-                          ...editData,
-                          is_transfer: e.target.checked,
-                          payment_method: e.target.checked
-                            ? "cash"
-                            : editData.payment_method,
-                        })
-                      }
-                      className="w-4 h-4 rounded border-border text-primary-600 accent-primary-600 cursor-pointer"
-                    />
-                    <span className="text-sm font-medium text-text-secondary flex items-center gap-1.5">
-                      <CreditCard className="w-4 h-4 text-primary-500" />
-                      Bu bir kredi kartı / borç ödemesidir (Toplam giderden
-                      hariç tut)
-                    </span>
-                  </label>
+                  </div>
                 </div>
               )}
               <div className="flex justify-end gap-2 pt-2">

@@ -28,7 +28,6 @@ import {
   RefreshCw,
   Pencil,
   CreditCard,
-  Banknote,
   Landmark,
 } from "lucide-react";
 
@@ -61,7 +60,7 @@ export const PaymentBadge = ({ method }) => {
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { salaryDay, accountType } = useProfile();
+  const { salaryDay } = useProfile();
   const { generatedCount, checked: recurringChecked } = useRecurringCheck();
 
   // Maaş döngüsü: takvim ayı yerine salary_day'e göre dönem hesabı
@@ -189,48 +188,19 @@ export default function Dashboard() {
   const nextCycle = () => setCycle(shiftCycle(cycle.start, salaryDay, 1));
 
   const totals = useMemo(() => {
+    // Dönemsel Nakit Akışı: Gelir − Gider = Net Durum
     const income = transactions
       .filter((t) => t.type === "income")
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    // Nakit giderler (is_transfer dahil — çünkü borcu nakitten öderiz)
-    const cashExpenses = transactions
-      .filter(
-        (t) =>
-          t.type === "expense" &&
-          (t.payment_method || "cash") === "cash" &&
-          !t.is_transfer,
-      )
+    // Toplam gider (is_transfer hariç — eski borç ödemeleri çifte sayılmasın)
+    const expense = transactions
+      .filter((t) => t.type === "expense" && !t.is_transfer)
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    // Kredi kartı borç ödemeleri (is_transfer === true) — nakitten çıkar, KK borcundan düşer
-    const transferPayments = transactions
-      .filter((t) => t.type === "expense" && t.is_transfer)
-      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const net = income - expense;
 
-    // Kredi kartı giderleri (borç havuzu)
-    const creditCardExpenses = transactions
-      .filter(
-        (t) =>
-          t.type === "expense" &&
-          (t.payment_method || "cash") === "credit_card" &&
-          !t.is_transfer,
-      )
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    // 🏦 Bankadaki Para = Gelir − Nakit giderler − KK borç ödemeleri
-    const cashBalance = income - cashExpenses - transferPayments;
-
-    // 💳 Güncel KK Borcu = KK giderleri − KK ödemeleri
-    const creditDebt = creditCardExpenses - transferPayments;
-
-    // 📊 Toplam Harcama (bütçe takibi) = Nakit + KK giderleri (is_transfer hariç)
-    const totalSpending = cashExpenses + creditCardExpenses;
-
-    // 🌟 Net Durum
-    const netStatus = cashBalance - creditDebt;
-
-    return { income, cashBalance, creditDebt, totalSpending, netStatus };
+    return { income, expense, net };
   }, [transactions]);
 
   const recentTransactions = useMemo(
@@ -304,179 +274,75 @@ export default function Dashboard() {
         </div>
       ) : (
         <>
-          {/* Summary Cards — 4'lü İki Kova + Net Durum veya 3'lü Sade Durum */}
-          {accountType === "business" ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
-              {/* Toplam Gelir */}
-              <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-success-500/5 rounded-bl-[60px] group-hover:bg-success-500/10 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-success-50 flex items-center justify-center">
-                      <TrendingUp className="w-5 h-5 text-success-600" />
-                    </div>
-                    <span className="text-sm font-medium text-text-secondary">
-                      Toplam Gelir
-                    </span>
+          {/* Summary Cards — Gelir / Gider / Net Durum (Unified 3-card layout) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-6">
+            {/* Toplam Gelir */}
+            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-success-500/5 rounded-bl-[60px] group-hover:bg-success-500/10 transition-colors" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-success-50 flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-success-600" />
                   </div>
-                  <p className="text-2xl lg:text-3xl font-bold text-success-700">
-                    {formatCurrency(totals.income)}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    Bu dönemdeki tüm gelirleriniz
-                  </p>
+                  <span className="text-sm font-medium text-text-secondary">
+                    Toplam Gelir
+                  </span>
                 </div>
-              </Card>
+                <p className="text-2xl lg:text-3xl font-bold text-success-700">
+                  {formatCurrency(totals.income)}
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  Bu dönemdeki tüm gelirleriniz
+                </p>
+              </div>
+            </Card>
 
-              {/* Toplam Gider */}
-              <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-danger-500/5 rounded-bl-[60px] group-hover:bg-danger-500/10 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-danger-50 flex items-center justify-center">
-                      <TrendingDown className="w-5 h-5 text-danger-600" />
-                    </div>
-                    <span className="text-sm font-medium text-text-secondary">
-                      Toplam Gider
-                    </span>
+            {/* Toplam Gider */}
+            <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-danger-500/5 rounded-bl-[60px] group-hover:bg-danger-500/10 transition-colors" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-danger-50 flex items-center justify-center">
+                    <TrendingDown className="w-5 h-5 text-danger-600" />
                   </div>
-                  <p className="text-2xl lg:text-3xl font-bold text-danger-700">
-                    {formatCurrency(totals.totalSpending)}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    Tüm harcama ve giderleriniz
-                  </p>
+                  <span className="text-sm font-medium text-text-secondary">
+                    Toplam Gider
+                  </span>
                 </div>
-              </Card>
+                <p className="text-2xl lg:text-3xl font-bold text-danger-700">
+                  {formatCurrency(totals.expense)}
+                </p>
+                <p className="text-xs text-text-muted mt-1">
+                  Tüm harcama ve giderleriniz
+                </p>
+              </div>
+            </Card>
 
-              {/* Net Durum */}
-              <Card className="relative overflow-hidden group hover:shadow-lg transition-all border-none bg-slate-900">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] group-hover:bg-blue-500/20 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <span className="text-sm font-medium text-slate-300">
-                      Net Durum
-                    </span>
+            {/* Net Durum */}
+            <Card className="relative overflow-hidden group hover:shadow-lg transition-all border-none bg-slate-900">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] group-hover:bg-blue-500/20 transition-colors" />
+              <div className="relative">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                    <Wallet className="w-5 h-5 text-blue-400" />
                   </div>
-                  <p
-                    className={`text-2xl lg:text-3xl font-bold ${
-                      totals.income - totals.totalSpending >= 0 ? "text-white" : "text-danger-400"
-                    }`}
-                  >
-                    {formatCurrency(totals.income - totals.totalSpending)}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Toplam Gelir − Toplam Gider
-                  </p>
+                  <span className="text-sm font-medium text-slate-300">
+                    Net Durum
+                  </span>
                 </div>
-              </Card>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
-              {/* 🌟 Net Durum (Ana Odak) */}
-              <Card className="relative overflow-hidden group hover:shadow-lg transition-all border-none bg-slate-900">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/10 rounded-bl-[60px] group-hover:bg-blue-500/20 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
-                      <Wallet className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <span className="text-sm font-medium text-slate-300">
-                      Net Durum
-                    </span>
-                  </div>
-                  <p
-                    className={`text-2xl lg:text-3xl font-bold ${
-                      totals.netStatus >= 0 ? "text-white" : "text-danger-400"
-                    }`}
-                  >
-                    {formatCurrency(totals.netStatus)}
-                  </p>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Bankadaki nakit − Kredi kartı borcu
-                  </p>
-                </div>
-              </Card>
-
-              {/* 🏦 Bankadaki Para */}
-              <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-success-500/5 rounded-bl-[60px] group-hover:bg-success-500/10 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-success-50 flex items-center justify-center">
-                      <Banknote className="w-5 h-5 text-success-600" />
-                    </div>
-                    <span className="text-sm font-medium text-text-secondary">
-                      Bankadaki Paran
-                    </span>
-                  </div>
-                  <p
-                    className={`text-2xl lg:text-3xl font-bold ${
-                      totals.cashBalance >= 0
-                        ? "text-success-700"
-                        : "text-danger-700"
-                    }`}
-                  >
-                    {formatCurrency(totals.cashBalance)}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    Kasadaki güncel nakit paran
-                  </p>
-                </div>
-              </Card>
-
-              {/* 💳 Kredi Kartı Borcu */}
-              <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-warning-500/5 rounded-bl-[60px] group-hover:bg-warning-500/10 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-warning-50 flex items-center justify-center">
-                      <CreditCard className="w-5 h-5 text-warning-600" />
-                    </div>
-                    <span className="text-sm font-medium text-text-secondary">
-                      Kredi Kartı Borcun
-                    </span>
-                  </div>
-                  <p
-                    className={`text-2xl lg:text-3xl font-bold ${
-                      totals.creditDebt > 0
-                        ? "text-warning-700"
-                        : "text-success-700"
-                    }`}
-                  >
-                    {formatCurrency(Math.max(0, totals.creditDebt))}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    Ödenmesi gereken güncel borç
-                  </p>
-                </div>
-              </Card>
-
-              {/* 📊 Bu Ay Toplam Harcama */}
-              <Card className="relative overflow-hidden group hover:shadow-md transition-shadow">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-danger-500/5 rounded-bl-[60px] group-hover:bg-danger-500/10 transition-colors" />
-                <div className="relative">
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="w-10 h-10 rounded-xl bg-danger-50 flex items-center justify-center">
-                      <TrendingDown className="w-5 h-5 text-danger-600" />
-                    </div>
-                    <span className="text-sm font-medium text-text-secondary">
-                      Toplam Harcama
-                    </span>
-                  </div>
-                  <p className="text-2xl lg:text-3xl font-bold text-danger-700">
-                    {formatCurrency(totals.totalSpending)}
-                  </p>
-                  <p className="text-xs text-text-muted mt-1">
-                    Nakit + Kredi Kartı harcamaları
-                  </p>
-                </div>
-              </Card>
-            </div>
-          )}
+                <p
+                  className={`text-2xl lg:text-3xl font-bold ${
+                    totals.net >= 0 ? "text-white" : "text-danger-400"
+                  }`}
+                >
+                  {formatCurrency(totals.net)}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Toplam Gelir − Toplam Gider
+                </p>
+              </div>
+            </Card>
+          </div>
 
           {/* Recurring auto-generated banner */}
           {recurringChecked && generatedCount > 0 && showRecurringBanner && (

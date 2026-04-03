@@ -249,7 +249,7 @@ export default function Settings() {
                   </div>
                 </div>
                 <p className="text-xs text-text-muted mt-1">
-                  Nakit ve kredi kartı borcunuzu ayrı ayrı takip edin.
+                  Aylık gelir ve giderlerinizi basitçe takip edin.
                 </p>
                 <input
                   type="radio"

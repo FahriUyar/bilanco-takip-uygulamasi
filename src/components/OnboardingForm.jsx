@@ -244,7 +244,7 @@ export default function OnboardingForm() {
                         <Wallet className="w-6 h-6" />
                       </div>
                       <span className={`font-bold text-base mb-1 ${accountType === "personal" ? "text-primary-700" : "text-text-primary"}`}>Bireysel</span>
-                      <p className="text-[11px] text-text-muted leading-relaxed">Nakit ve kredi kartı borcunuzu ayrı takip edin.</p>
+                      <p className="text-[11px] text-text-muted leading-relaxed">Aylık gelir ve giderlerinizi basitçe takip edin.</p>
                     </button>
 
                     <button
